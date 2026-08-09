@@ -1,0 +1,101 @@
+# nginx front proxy for OpenHost opencode.
+#
+# Substituted at boot by start.sh:
+#   __UPSTREAM_PORT__  -> the loopback port opencode serve listens on
+#
+# Responsibilities:
+#   * Terminate the OpenHost-routed :8080 connection.
+#   * Serve a static 200 on /_healthz (declared health_check) the
+#     instant nginx is up, before opencode has finished booting.
+#   * Deny any request that does NOT carry the router-stamped
+#     X-OpenHost-Is-Owner: true header. opencode has no auth of its
+#     own and every session can run arbitrary shell commands, so the
+#     app is owner-only. The OpenHost router already blocks anonymous
+#     traffic (there are no public_paths); this is a second, in-container
+#     gate so a misconfigured public_paths entry can never expose code
+#     execution.
+#   * Proxy HTTP + SSE (/event) + PTY WebSocket-upgrade traffic to the
+#     opencode server on 127.0.0.1:__UPSTREAM_PORT__.
+#
+# The OpenHost router strips the inbound Host header (the app sees
+# Host: 127.0.0.1:8080); we forward X-Forwarded-Host onward.
+
+worker_processes 1;
+error_log /dev/stderr warn;
+pid /tmp/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    access_log /dev/stdout;
+
+    # nginx needs writable temp paths; /tmp is always writable.
+    client_body_temp_path /tmp/nginx-client-body;
+    proxy_temp_path       /tmp/nginx-proxy;
+    fastcgi_temp_path     /tmp/nginx-fastcgi;
+    uwsgi_temp_path       /tmp/nginx-uwsgi;
+    scgi_temp_path        /tmp/nginx-scgi;
+
+    # WebSocket upgrade plumbing (PTY terminal endpoints).
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    # Owner is the OpenHost zone owner (router-stamped, unspoofable:
+    # the router sets this header itself and strips any client-supplied
+    # copy).
+    map $http_x_openhost_is_owner $is_owner {
+        default 0;
+        "true"  1;
+    }
+
+    # The router strips Host and forwards X-Forwarded-Host with the real
+    # external host. Fall back to $host if for some reason it's absent.
+    map $http_x_forwarded_host $forward_host {
+        default $http_x_forwarded_host;
+        ""      $host;
+    }
+
+    # Bodies can be large (file uploads, big diffs, pasted context).
+    client_max_body_size 512m;
+
+    upstream opencode {
+        server 127.0.0.1:__UPSTREAM_PORT__;
+    }
+
+    server {
+        listen 8080;
+        server_name _;
+
+        # The router forwards Host: 127.0.0.1:8080; keep relative
+        # redirects path-only so the browser resolves them against the
+        # real external domain.
+        absolute_redirect off;
+
+        # Long timeouts: agent runs, SSE streams and PTY sessions hold
+        # connections open for a long time.
+        proxy_read_timeout  86400s;
+        proxy_send_timeout  86400s;
+
+        # Health check: static 200 as soon as nginx is up. Deliberately
+        # placed BEFORE the owner gate so the OpenHost readiness probe
+        # (which carries no owner header) succeeds during cold start.
+        location = /_healthz {
+            add_header Content-Type text/plain;
+            return 200 "ok\n";
+        }
+
+        # Owner gate: everything else requires the router-stamped owner
+        # header. Anonymous / non-owner requests get a flat 403.
+        location / {
+            if ($is_owner = 0) {
+                return 403 "forbidden\n";
+            }
+            proxy_pass http://opencode;
+            include /opt/openhost-opencode/proxy_common.conf;
+        }
+    }
+}
