@@ -1,14 +1,14 @@
-# openhost-opencode
+# bottled-opencode
 
 [opencode](https://opencode.ai) — the SST/anomalyco terminal AI coding
 agent — packaged as a self-hosted **web app** for
-[OpenHost](https://github.com/imbue-openhost/openhost).
+[Cloud in a Bottle](https://github.com/imbue-openhost/Cloud in a Bottle).
 
-The OpenHost zone owner opens `https://opencode.<zone>/` and lands
+The Cloud in a Bottle zone owner opens `https://opencode.<zone>/` and lands
 straight in opencode's browser IDE (sessions, chat, file browsing,
-integrated terminal) with no login screen — OpenHost SSO carries them
+integrated terminal) with no login screen — Cloud in a Bottle SSO carries them
 in. The agent talks to Anthropic Claude using an API key pulled from
-the OpenHost secrets service at boot.
+the Cloud in a Bottle secrets service at boot.
 
 ## Architecture
 
@@ -32,7 +32,7 @@ opencode's HTTP server has **no authentication** in this deployment
 (`OPENCODE_SERVER_PASSWORD` is intentionally left unset). Two
 independent gates protect it instead:
 
-1. **The OpenHost router.** There are no `public_paths`, so the router
+1. **The Cloud in a Bottle router.** There are no `public_paths`, so the router
    rejects every anonymous request before it reaches the container and
    only forwards requests from the authenticated zone owner.
 2. **nginx, in-container.** It denies any request that does not carry
@@ -53,7 +53,7 @@ public mode.
 
 ## Credential handling
 
-The Anthropic API key is provisioned through the OpenHost **secrets
+The Anthropic API key is provisioned through the Cloud in a Bottle **secrets
 service**, never baked into the image or written to disk:
 
 1. The owner stores `ANTHROPIC_API_KEY` in the secrets app.
@@ -95,7 +95,7 @@ anthropic` locally to see valid ids.
 ## Deploying
 
 ```
-oh app deploy https://github.com/imbue-openhost/openhost-opencode --name opencode --wait
+oh app deploy https://github.com/imbue-openhost/bottled-opencode --name opencode --wait
 ```
 
 Make sure `ANTHROPIC_API_KEY` is stored in the secrets app and that
