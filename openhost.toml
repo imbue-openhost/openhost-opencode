@@ -1,7 +1,7 @@
 [app]
 name = "opencode"
 version = "0.1.0"
-description = "opencode — the SST/anomalyco AI coding agent — running as a self-hosted web app on OpenHost. The zone owner gets the full browser IDE (sessions, chat, file browsing, terminal) auto-authenticated via OpenHost SSO. The Anthropic API key is pulled at boot from the OpenHost secrets service, never baked into the image or written to disk. Anonymous visitors cannot reach any route: the whole app is owner-only because every session can execute arbitrary shell commands."
+description = "opencode — the SST/anomalyco AI coding agent — running as a self-hosted web app on Cloud in a Bottle. The zone owner gets the full browser IDE (sessions, chat, file browsing, terminal) auto-authenticated via Cloud in a Bottle SSO. The Anthropic API key is pulled at boot from the Cloud in a Bottle secrets service, never baked into the image or written to disk. Anonymous visitors cannot reach any route: the whole app is owner-only because every session can execute arbitrary shell commands."
 authors = ["Andrew Laack <andrew@laack.co>"]
 
 [runtime.container]
